@@ -9,7 +9,11 @@ from function_calling import func_specs, FunctionCalling  # 단일 함수 호출
 
 # chorongGak 인스턴스 생성
 chorongGak = Chatbot(
-    model=model.advanced, system_role=system_role, instruction=instruction  # advanced
+    model=model.advanced,
+    system_role=system_role,
+    instruction=instruction,
+    user="지연",
+    assistant="초롱",
 )
 
 application = Flask(__name__)
@@ -38,22 +42,24 @@ def chat_api():
     print("request_message:", request_message)
     chorongGak.add_user_message(request_message)
 
-    # 챗GPT에게 함수사양을 토대로 사용자 메시지에 호응하는 함수 정보를 분석해달라고 요청
-    analyzed_dict = func_calling.analyze(request_message, func_specs)  # 단일 함수 호출
-    # analyzed, analyzed_dict = func_calling.analyze(request_message, tools) # 병렬적 함수 호춝
-    # 챗GPT가 함수 호출이 필요하다고 분석했는지 여부 체크
-    if analyzed_dict.get("function_call"):  # 단일 함수 호출
-        # if analyzed_dict.get("tool_calls"): # 병렬적 함수 호출
-        # 챗GPT가 분석해준 대로 함수 호출
-        response = func_calling.run(
-            analyzed_dict, chorongGak.context[:]
-        )  # 단일 함수 호출
-        # response = func_calling.run(analyzed, analyzed_dict, chorongGak.context[:]) # 병렬적 함수 호출
-        chorongGak.add_response(response)
-    else:
-        response = chorongGak.send_request()
-        chorongGak.add_response(response)
-
+    ### 단일, 병렬 함수 사용
+    # # 챗GPT에게 함수사양을 토대로 사용자 메시지에 호응하는 함수 정보를 분석해달라고 요청
+    # analyzed_dict = func_calling.analyze(request_message, func_specs)  # 단일 함수 호출
+    # # analyzed, analyzed_dict = func_calling.analyze(request_message, tools) # 병렬적 함수 호춝
+    # # 챗GPT가 함수 호출이 필요하다고 분석했는지 여부 체크
+    # if analyzed_dict.get("function_call"):  # 단일 함수 호출
+    #     # if analyzed_dict.get("tool_calls"): # 병렬적 함수 호출
+    #     # 챗GPT가 분석해준 대로 함수 호출
+    #     response = func_calling.run(
+    #         analyzed_dict, chorongGak.context[:]
+    #     )  # 단일 함수 호출
+    #     # response = func_calling.run(analyzed, analyzed_dict, chorongGak.context[:]) # 병렬적 함수 호출
+    #     chorongGak.add_response(response)
+    # else:
+    #     response = chorongGak.send_request()
+    #     chorongGak.add_response(response)
+    response = chorongGak.send_request()
+    chorongGak.add_response(response)
     response_message = chorongGak.get_response_content()
     chorongGak.handle_token_limit(response)
     chorongGak.clean_context()

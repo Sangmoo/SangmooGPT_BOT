@@ -1,15 +1,27 @@
 from common import client, makeup_response
 import math
+from warning_agent import WarningAgent
 
 
 class Chatbot:
 
-    def __init__(self, model, system_role, instruction):
+    def __init__(self, model, system_role, instruction, **kwargs):
         self.context = [{"role": "system", "content": system_role}]
         self.model = model
         self.instruction = instruction
         self.max_token_size = 16 * 1024
         self.available_token_rate = 0.9
+        self.kwargs = kwargs
+        self.user = kwargs["user"]
+        self.assistant = kwargs["assistant"]
+        self.warningAgent = self._create_warning_agent()
+
+    def _create_warning_agent(self):
+        return WarningAgent(
+            model=self.model,
+            user=self.user,
+            assistant=self.assistant,
+        )
 
     def add_user_message(self, user_message):
         self.context.append({"role": "user", "content": user_message})

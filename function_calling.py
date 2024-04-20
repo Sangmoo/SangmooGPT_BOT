@@ -83,8 +83,40 @@ def get_currency(**kwargs):
 def search_internet(**kwargs):
     print("search_internet", kwargs)
     answer = tavily.search(query=kwargs["search_query"], include_answer=True)["answer"]
-    print("answer:", answer)
+    print("answer", answer)
     return answer
+
+
+def search_internet_for_report(**kwargs):
+    print("search_internet", kwargs)
+    response = tavily.search(
+        query=kwargs["search_query"], max_results=2, search_depth="advanced"
+    )
+    contents = [
+        {"content": result["content"], "url": result["url"]}
+        for result in response["results"]
+    ]
+    print("contents", contents)
+    return f"수집된 자료:{contents}"
+
+
+report_system_role = """
+다음 내용을 바탕으로 보고서를 한국어로 작성해주세요. 보고서 작성 시 url을 각주로 반드시 표시하세요.
+"""
+
+
+def write_report(**kwargs):
+    print("write_report", kwargs)
+    response = client.chat.completions.create(
+        timeout=90,
+        model="gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": report_system_role},
+            {"role": "user", "content": kwargs["materials"]},
+        ],
+    )
+    report = response.model_dump()["choices"][0]["message"]["content"]
+    return report
 
 
 func_specs = [
@@ -132,6 +164,37 @@ func_specs = [
     },
 ]
 
+func_specs_report = [
+    {
+        "name": "search_internet_for_report",
+        "description": "자료를 찾기 위해 인터넷을 검색하는 함수",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "search_query": {
+                    "type": "string",
+                    "description": "인터넷 검색을 위한 검색어",
+                }
+            },
+            "required": ["search_query"],
+        },
+    },
+    {
+        "name": "write_report",
+        "description": "수집된 정보를 바탕으로 보고서를 작성해주는 함수",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "materials": {
+                    "type": "string",
+                    "description": "사용자 메시지 중 '수집된 자료:' 리스트 안에 있는 raw data",
+                }
+            },
+            "required": ["materials"],
+        },
+    },
+]
+
 
 class FunctionCalling:
 
@@ -140,6 +203,8 @@ class FunctionCalling:
             "get_celsius_temperature": get_celsius_temperature,
             "get_currency": get_currency,
             "search_internet": search_internet,
+            "search_internet_for_report": search_internet_for_report,
+            "write_report": write_report,
         }
         self.model = model
 
@@ -175,3 +240,14 @@ class FunctionCalling:
         except Exception as e:
             print("Error occurred(run):", e)
             return makeup_response("[run 오류입니다]")
+
+    def call_function(self, analyzed_dict):
+        func_name = analyzed_dict["function_call"]["name"]
+        func_to_call = self.available_functions[func_name]
+        try:
+            func_args = json.loads(analyzed_dict["function_call"]["arguments"])
+            func_response = func_to_call(**func_args)
+            return str(func_response)
+        except Exception as e:
+            print("Error occurred(call_function):", e)
+            return makeup_response("[call_function 오류입니다]")
