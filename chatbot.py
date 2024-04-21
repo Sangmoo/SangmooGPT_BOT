@@ -1,6 +1,6 @@
 from common import client, makeup_response
 import math
-from warning_agent import WarningAgent
+from memory_manager import MemoryManager
 
 
 class Chatbot:
@@ -14,23 +14,17 @@ class Chatbot:
         self.kwargs = kwargs
         self.user = kwargs["user"]
         self.assistant = kwargs["assistant"]
-        self.warningAgent = self._create_warning_agent()
-
-    def _create_warning_agent(self):
-        return WarningAgent(
-            model=self.model,
-            user=self.user,
-            assistant=self.assistant,
-        )
+        self.memoryManager = MemoryManager()
+        self.context.extend(self.memoryManager.restore_chat())
 
     def add_user_message(self, user_message):
-        self.context.append({"role": "user", "content": user_message})
+        self.context.append({"role": "user", "content": user_message, "saved": False})
 
     def _send_request(self):
         try:
             response = client.chat.completions.create(
                 model=self.model,
-                messages=self.context,
+                messages=self.to_openai_contenxt(),
                 temperature=0.5,  # 자유도
                 top_p=1,
                 max_tokens=256,
@@ -82,3 +76,9 @@ class Chatbot:
                 self.context = [self.context[0]] + self.context[remove_size + 1 :]
         except Exception as e:
             print(f"handle_token_limit exception:{e}")
+
+    def to_openai_contenxt(self):
+        return [{"role": v["role"], "content": v["content"]} for v in self.context]
+
+    def save_chat(self):
+        self.memoryManager.save_chat(self.context)
